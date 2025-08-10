@@ -8,3 +8,7 @@ bucket = "./client/build"
 [[hyperdrive]]
 binding = "HYPERDRIVE"
 id = "56aaa06488384316b83843f6780f744d"
+
+[vars]
+# This will be overridden by the secret you set in the Cloudflare dashboard
+JWT_SECRET = "a-default-secret-for-local-development"

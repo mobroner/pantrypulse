@@ -1,4 +1,8 @@
 {
+  "private": true,
+  "scripts": {
+    "build": "cd client && npm install && npm run build"
+  },
   "dependencies": {
     "@cloudflare/kv-asset-handler": "^0.4.0"
   }
