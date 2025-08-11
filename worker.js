@@ -71,7 +71,7 @@ export default {
           status: 200,
         });
       } catch (e) {
-        return new Response('Not found', { status: 404 });
+        return new Response(`Asset not found. Tried to serve ${new URL(request.url).origin}/index.html`, { status: 404 });
       }
     }
   },
