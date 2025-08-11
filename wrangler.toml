@@ -3,8 +3,10 @@ main = "worker.js"
 compatibility_date = "2025-08-07"
 compatibility_flags = ["nodejs_compat"]
 
+
 [site]
 bucket = "./client/build"
+entry-point = "."
 
 [[hyperdrive]]
 binding = "HYPERDRIVE"
