@@ -1,6 +1,5 @@
 
 import { Router } from 'itty-router';
-import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 // import db from './server/db';
 import { workerAuth } from './server/middleware/auth';
 import { workerHandlers as authHandlers } from './server/routes/auth.worker.js';
@@ -37,46 +36,25 @@ router.delete('/api/storage/:id/groups/:group_id', workerAuth, (req, env, ctx) =
 
 export default {
   async fetch(request, env, ctx) {
-    // Check for static asset bindings
-    if (!env.__STATIC_CONTENT) {
-      return new Response(
-        'Error: __STATIC_CONTENT binding not found. This is required for serving static assets.',
-        { status: 500 }
-      );
-    }
     const url = new URL(request.url);
     if (url.pathname.startsWith('/api/')) {
-      // db.init(env); // Not supported in Cloudflare Workers
       return router.handle(request, env, ctx);
     }
 
+    // Otherwise, serve the static assets.
+    // This requires the `[site]` configuration in `wrangler.toml` to be present.
+    // `env.ASSETS` is the service binding to the static assets.
     try {
-      return await getAssetFromKV(
-        {
-          request,
-          waitUntil: ctx.waitUntil.bind(ctx),
-        },
-        {
-          ASSET_NAMESPACE: env.__STATIC_CONTENT,
-          ASSET_MANIFEST: env.__STATIC_CONTENT_MANIFEST,
-        }
-      );
+      return await env.ASSETS.fetch(request);
     } catch (e) {
-      const pathname = new URL(request.url).pathname;
-      if (pathname.match(/(\.\w*|__.*)$/)) {
-        return new Response(null, { status: 404 });
-      }
-      const notFoundRequest = new Request(new URL(request.url).origin, request);
-      return await getAssetFromKV(
-        {
-          request: notFoundRequest,
-          waitUntil: ctx.waitUntil.bind(ctx),
-        },
-        {
-          ASSET_NAMESPACE: env.__STATIC_CONTENT,
-          ASSET_MANIFEST: env.__STATIC_CONTENT_MANIFEST,
-        }
+      // If the asset is not found, fall back to the index.html for SPA routing.
+      let notFoundResponse = await env.ASSETS.fetch(
+        new Request(new URL(request.url).origin + '/index.html', request)
       );
+      return new Response(notFoundResponse.body, {
+        ...notFoundResponse,
+        status: 200,
+      });
     }
   },
 };
