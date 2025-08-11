@@ -37,6 +37,13 @@ router.delete('/api/storage/:id/groups/:group_id', workerAuth, (req, env, ctx) =
 
 export default {
   async fetch(request, env, ctx) {
+    // Check for static asset bindings
+    if (!env.__STATIC_CONTENT) {
+      return new Response(
+        'Error: __STATIC_CONTENT binding not found. This is required for serving static assets.',
+        { status: 500 }
+      );
+    }
     const url = new URL(request.url);
     if (url.pathname.startsWith('/api/')) {
       // db.init(env); // Not supported in Cloudflare Workers
@@ -44,47 +51,32 @@ export default {
     }
 
     try {
-      if (env.__STATIC_CONTENT && env.__STATIC_CONTENT_MANIFEST) {
-        return await getAssetFromKV(
-          {
-            request,
-            waitUntil: ctx.waitUntil.bind(ctx),
-          },
-          {
-            ASSET_NAMESPACE: env.__STATIC_CONTENT,
-            ASSET_MANIFEST: env.__STATIC_CONTENT_MANIFEST,
-          }
-        );
-      } else {
-        // Fallback: static asset bindings not set
-        return new Response(
-          '<!DOCTYPE html><html><head><title>Pantry Pulse</title></head><body><h1>Pantry Pulse Cloudflare Worker</h1><p>Static assets are not configured.</p></body></html>',
-          { status: 200, headers: { 'Content-Type': 'text/html' } }
-        );
-      }
+      return await getAssetFromKV(
+        {
+          request,
+          waitUntil: ctx.waitUntil.bind(ctx),
+        },
+        {
+          ASSET_NAMESPACE: env.__STATIC_CONTENT,
+          ASSET_MANIFEST: env.__STATIC_CONTENT_MANIFEST,
+        }
+      );
     } catch (e) {
       const pathname = new URL(request.url).pathname;
       if (pathname.match(/(\.\w*|__.*)$/)) {
         return new Response(null, { status: 404 });
       }
-      if (env.__STATIC_CONTENT && env.__STATIC_CONTENT_MANIFEST) {
-        const notFoundRequest = new Request(new URL(request.url).origin, request);
-        return await getAssetFromKV(
-          {
-            request: notFoundRequest,
-            waitUntil: ctx.waitUntil.bind(ctx),
-          },
-          {
-            ASSET_NAMESPACE: env.__STATIC_CONTENT,
-            ASSET_MANIFEST: env.__STATIC_CONTENT_MANIFEST,
-          }
-        );
-      } else {
-        return new Response(
-          '<!DOCTYPE html><html><head><title>Pantry Pulse</title></head><body><h1>Pantry Pulse Cloudflare Worker</h1><p>Static assets are not configured.</p></body></html>',
-          { status: 200, headers: { 'Content-Type': 'text/html' } }
-        );
-      }
+      const notFoundRequest = new Request(new URL(request.url).origin, request);
+      return await getAssetFromKV(
+        {
+          request: notFoundRequest,
+          waitUntil: ctx.waitUntil.bind(ctx),
+        },
+        {
+          ASSET_NAMESPACE: env.__STATIC_CONTENT,
+          ASSET_MANIFEST: env.__STATIC_CONTENT_MANIFEST,
+        }
+      );
     }
   },
 };
