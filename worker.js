@@ -1,5 +1,5 @@
 import { Router } from 'itty-router';
-import { getAssetFromKV, mapRequestToAsset } from '@cloudflare/kv-asset-handler';
+import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 import { workerAuth } from './server/middleware/auth';
 import { workerHandlers as authHandlers } from './server/routes/auth.worker.js';
 import { workerHandlers as itemHandlers } from './server/routes/items.worker.js';
@@ -48,14 +48,7 @@ export default {
         },
         {
           ASSET_NAMESPACE: env.STATIC_CONTENT,
-          ASSET_MANIFEST: JSON.parse(await env.STATIC_CONTENT.get('asset-manifest.json')),
-          mapRequestToAsset: (req) => {
-            const url = new URL(req.url);
-            if (url.pathname.startsWith('/static/')) {
-              return mapRequestToAsset(req);
-            }
-            return new Request(`${url.origin}/index.html`, req);
-          },
+          ASSET_MANIFEST: JSON.parse(await env.STATIC_CONTENT.get('asset-manifest.json'))
         }
       );
     } catch (e) {
