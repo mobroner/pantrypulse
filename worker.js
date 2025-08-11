@@ -1,5 +1,4 @@
 import { Router } from 'itty-router';
-import { getAssetFromKV, mapRequestToAsset } from '@cloudflare/kv-asset-handler';
 // import db from './server/db';
 import { workerAuth } from './server/middleware/auth';
 import { workerHandlers as authHandlers } from './server/routes/auth.worker.js';
@@ -46,31 +45,20 @@ export default {
     }
 
     try {
-      // Use kv-asset-handler to serve static assets
-      return await getAssetFromKV(
-        {
-          request,
-          waitUntil: ctx.waitUntil.bind(ctx),
-        },
-        {
-          ASSET_NAMESPACE: env.STATIC_CONTENT,
-          ASSET_MANIFEST: JSON.parse(await env.STATIC_CONTENT.get('asset-manifest.json')),
-          mapRequestToAsset: (req) => {
-            const url = new URL(req.url);
-            if (url.pathname.startsWith('/static/')) {
-              return mapRequestToAsset(req);
-            }
-            return new Request(`${url.origin}/index.html`, req);
-          },
-        }
-      );
+      // This will be handled by the `site` config in wrangler.toml
+      // It will automatically serve static assets from the bucket directory.
+      // Any request that doesn't match a static asset will fall through
+      // and be handled by the API router.
+      return await env.ASSETS.fetch(request);
     } catch (e) {
-      // If asset not found, fall back to the API router for 404s
-      const fallbackResponse = await router.handle(request, env, ctx);
-      if (fallbackResponse instanceof Response) {
-        return fallbackResponse;
+      let pathname = new URL(request.url).pathname;
+      if (pathname.startsWith('/api/')) {
+        // This is an API call, so let the router handle it
+        return router.handle(request, env, ctx);
       }
-      return new Response('Not found', { status: 404 });
+      // Serve the index.html for any other requests that are not API calls
+      // and not found in the static assets. This is common for SPAs.
+      return env.ASSETS.fetch(new Request(new URL(request.url).origin + '/index.html', request));
     }
   },
 };
