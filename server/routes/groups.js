@@ -1,6 +1,7 @@
 
 const express = require('express');
 const db = require('../db');
+const jwt = require('jsonwebtoken');
 // const auth = require('../middleware/auth');
 
 // Express Router
@@ -83,10 +84,25 @@ expressRouter.delete('/:id', async (req, res) => {
     }
 });
 
-// Worker-style handlers
+// Helper to extract user id from JWT in Authorization header
+async function getUserIdFromRequest(request, env) {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        throw new Error('Missing or invalid Authorization header');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    try {
+        const decoded = jwt.verify(token, env.JWT_SECRET);
+        return decoded.id;
+    } catch (e) {
+        throw new Error('Invalid token');
+    }
+}
+
 const workerHandlers = {
-    async getAll(request) {
+    async getAll(request, env) {
         try {
+            const userId = await getUserIdFromRequest(request, env);
             const query = `
                 SELECT 
                     ig.id, 
@@ -105,55 +121,58 @@ const workerHandlers = {
                 LEFT JOIN 
                     storage_areas sa ON sag.storage_area_id = sa.id
                 WHERE 
-                    ig.user_id = $1
+                    ig.user_id = ?
                 GROUP BY 
                     ig.id
                 ORDER BY 
                     ig.group_name;
             `;
-            const result = await db.query(query, [request.user.id]);
-            return new Response(JSON.stringify(result.rows), { headers: { 'Content-Type': 'application/json' } });
+            const result = await env.HYPERDRIVE.prepare(query).bind(userId).all();
+            return new Response(JSON.stringify(result.results), { headers: { 'Content-Type': 'application/json' } });
         } catch (err) {
             console.error(err.message);
             return new Response('Server Error', { status: 500 });
         }
     },
-    async add(request) {
+    async add(request, env) {
         const { group_name, description } = await request.json();
         try {
-            const newGroup = await db.query(
-                'INSERT INTO item_groups (user_id, group_name, description) VALUES ($1, $2, $3) RETURNING *',
-                [request.user.id, group_name, description]
-            );
-            return new Response(JSON.stringify(newGroup.rows[0]), { headers: { 'Content-Type': 'application/json' } });
+            const userId = await getUserIdFromRequest(request, env);
+            const result = await env.HYPERDRIVE.prepare(
+                'INSERT INTO item_groups (user_id, group_name, description) VALUES (?, ?, ?) RETURNING *'
+            ).bind(userId, group_name, description).all();
+            return new Response(JSON.stringify(result.results[0]), { headers: { 'Content-Type': 'application/json' } });
         } catch (err) {
             console.error(err.message);
             return new Response('Server Error', { status: 500 });
         }
     },
-    async update(request) {
+    async update(request, env) {
         const { group_name, description } = await request.json();
-        const { id } = request.params;
+        const url = new URL(request.url);
+        const id = url.pathname.split('/').pop();
         try {
-            const updatedGroup = await db.query(
-                'UPDATE item_groups SET group_name = $1, description = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 AND user_id = $4 RETURNING *',
-                [group_name, description, id, request.user.id]
-            );
-            if (updatedGroup.rows.length === 0) {
+            const userId = await getUserIdFromRequest(request, env);
+            const result = await env.HYPERDRIVE.prepare(
+                'UPDATE item_groups SET group_name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ? RETURNING *'
+            ).bind(group_name, description, id, userId).all();
+            if (!result.results.length) {
                 return new Response(JSON.stringify({ msg: 'Group not found or user not authorized' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
             }
-            return new Response(JSON.stringify(updatedGroup.rows[0]), { headers: { 'Content-Type': 'application/json' } });
+            return new Response(JSON.stringify(result.results[0]), { headers: { 'Content-Type': 'application/json' } });
         } catch (err) {
             console.error(err.message);
             return new Response('Server Error', { status: 500 });
         }
     },
-    async remove(request) {
-        const { id } = request.params;
+    async remove(request, env) {
+        const url = new URL(request.url);
+        const id = url.pathname.split('/').pop();
         try {
-            await db.query('UPDATE freezer_items SET group_id = NULL WHERE group_id = $1 AND user_id = $2', [id, request.user.id]);
-            const deleteOp = await db.query('DELETE FROM item_groups WHERE id = $1 AND user_id = $2 RETURNING *', [id, request.user.id]);
-            if (deleteOp.rows.length === 0) {
+            const userId = await getUserIdFromRequest(request, env);
+            await env.HYPERDRIVE.prepare('UPDATE freezer_items SET group_id = NULL WHERE group_id = ? AND user_id = ?').bind(id, userId).all();
+            const result = await env.HYPERDRIVE.prepare('DELETE FROM item_groups WHERE id = ? AND user_id = ? RETURNING *').bind(id, userId).all();
+            if (!result.results.length) {
                 return new Response(JSON.stringify({ msg: 'Group not found or user not authorized' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
             }
             return new Response(JSON.stringify({ msg: 'Group deleted and items un-grouped' }), { headers: { 'Content-Type': 'application/json' } });
@@ -163,6 +182,7 @@ const workerHandlers = {
         }
     }
 };
+
 
 module.exports = {
     expressRouter,
