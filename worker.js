@@ -53,8 +53,8 @@ export default {
           waitUntil: ctx.waitUntil.bind(ctx),
         },
         {
-          ASSET_NAMESPACE: env.__STATIC_CONTENT,
-          ASSET_MANIFEST: JSON.parse(await env.__STATIC_CONTENT.get('manifest.json')),
+          ASSET_NAMESPACE: env.STATIC_CONTENT,
+          ASSET_MANIFEST: JSON.parse(await env.STATIC_CONTENT.get('manifest.json')),
           mapRequestToAsset: (req) => {
             const url = new URL(req.url);
             if (url.pathname.startsWith('/static/')) {
