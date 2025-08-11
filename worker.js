@@ -40,21 +40,8 @@ export default {
     if (url.pathname.startsWith('/api/')) {
       return router.handle(request, env, ctx);
     }
-
-    // Otherwise, serve the static assets.
-    // This requires the `[site]` configuration in `wrangler.toml` to be present.
-    // `env.ASSETS` is the service binding to the static assets.
-    try {
-      return await env.ASSETS.fetch(request);
-    } catch (e) {
-      // If the asset is not found, fall back to the index.html for SPA routing.
-      let notFoundResponse = await env.ASSETS.fetch(
-        new Request(new URL(request.url).origin + '/index.html', request)
-      );
-      return new Response(notFoundResponse.body, {
-        ...notFoundResponse,
-        status: 200,
-      });
-    }
+    // This will pass the request to the next service in the chain,
+    // which in this case is the static asset server.
+    return env.ASSETS.fetch(request);
   },
 };
