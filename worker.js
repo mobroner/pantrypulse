@@ -1,5 +1,5 @@
 import { Router } from 'itty-router';
-// import db from './server/db';
+import { getAssetFromKV, mapRequestToAsset } from '@cloudflare/kv-asset-handler';
 import { workerAuth } from './server/middleware/auth';
 import { workerHandlers as authHandlers } from './server/routes/auth.worker.js';
 import { workerHandlers as itemHandlers } from './server/routes/items.worker.js';
@@ -33,32 +33,31 @@ router.delete('/api/storage/:id', workerAuth, (req, env, ctx) => storageHandlers
 router.post('/api/storage/:id/groups', workerAuth, (req, env, ctx) => storageHandlers.addGroup(req, env, ctx));
 router.delete('/api/storage/:id/groups/:group_id', workerAuth, (req, env, ctx) => storageHandlers.removeGroup(req, env, ctx));
 
-export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    if (url.pathname.startsWith('/api/')) {
-      const apiResponse = await router.handle(request, env, ctx);
-      if (apiResponse instanceof Response) {
-        return apiResponse;
-      }
-      return new Response('Not found', { status: 404 });
-    }
+addEventListener('fetch', event => {
+  event.respondWith(handleEvent(event));
+});
 
-    try {
-      // This will be handled by the `site` config in wrangler.toml
-      // It will automatically serve static assets from the bucket directory.
-      // Any request that doesn't match a static asset will fall through
-      // and be handled by the API router.
-      return await env.ASSETS.fetch(request);
-    } catch (e) {
-      let pathname = new URL(request.url).pathname;
-      if (pathname.startsWith('/api/')) {
-        // This is an API call, so let the router handle it
-        return router.handle(request, env, ctx);
-      }
-      // Serve the index.html for any other requests that are not API calls
-      // and not found in the static assets. This is common for SPAs.
-      return env.ASSETS.fetch(new Request(new URL(request.url).origin + '/index.html', request));
+async function handleEvent(event) {
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/api/')) {
+    const apiResponse = await router.handle(event.request, event.env, event.ctx);
+    if (apiResponse instanceof Response) {
+      return apiResponse;
     }
-  },
-};
+    return new Response('Not found', { status: 404 });
+  }
+
+  try {
+    return await getAssetFromKV(event, {
+      mapRequestToAsset: (req) => {
+        const url = new URL(req.url);
+        if (url.pathname.startsWith('/static/')) {
+          return mapRequestToAsset(req);
+        }
+        return new Request(`${url.origin}/index.html`, req);
+      },
+    });
+  } catch (e) {
+    return new Response('Not found', { status: 404 });
+  }
+}
