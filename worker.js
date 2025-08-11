@@ -38,7 +38,11 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/api/')) {
-      return router.handle(request, env, ctx);
+      const apiResponse = await router.handle(request, env, ctx);
+      if (apiResponse instanceof Response) {
+        return apiResponse;
+      }
+      return new Response('Not found', { status: 404 });
     }
 
     try {
@@ -62,7 +66,11 @@ export default {
       );
     } catch (e) {
       // If asset not found, fall back to the API router for 404s
-      return router.handle(request, env, ctx);
+      const fallbackResponse = await router.handle(request, env, ctx);
+      if (fallbackResponse instanceof Response) {
+        return fallbackResponse;
+      }
+      return new Response('Not found', { status: 404 });
     }
   },
 };
