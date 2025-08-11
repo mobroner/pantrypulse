@@ -1,6 +1,7 @@
 name = "pantrypulse"
 main = "worker.js"
 compatibility_date = "2023-07-24"
+compatibility_flags = ["nodejs_compat"]
 
 [site]
 bucket = "./client/build"
