@@ -1,5 +1,6 @@
 
 import { Router } from 'itty-router';
+import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 // import db from './server/db';
 import { workerAuth } from './server/middleware/auth';
 import { workerHandlers as authHandlers } from './server/routes/auth.worker.js';
@@ -40,8 +41,38 @@ export default {
     if (url.pathname.startsWith('/api/')) {
       return router.handle(request, env, ctx);
     }
-    // This will pass the request to the next service in the chain,
-    // which in this case is the static asset server.
-    return env.ASSETS.fetch(request);
+
+    try {
+      return await getAssetFromKV(
+        {
+          request,
+          waitUntil: ctx.waitUntil.bind(ctx),
+        },
+        {
+          ASSET_NAMESPACE: env.__STATIC_CONTENT,
+          ASSET_MANIFEST: null, // We don't need a manifest with this setup
+        }
+      );
+    } catch (e) {
+      // If the asset is not found, fall back to the index.html for SPA routing.
+      try {
+        let notFoundResponse = await getAssetFromKV(
+          {
+            request: new Request(new URL(request.url).origin + '/index.html', request),
+            waitUntil: ctx.waitUntil.bind(ctx),
+          },
+          {
+            ASSET_NAMESPACE: env.__STATIC_CONTENT,
+            ASSET_MANIFEST: null,
+          }
+        );
+        return new Response(notFoundResponse.body, {
+          ...notFoundResponse,
+          status: 200,
+        });
+      } catch (e) {
+        return new Response('Not found', { status: 404 });
+      }
+    }
   },
 };

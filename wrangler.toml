@@ -4,8 +4,10 @@ compatibility_date = "2025-08-07"
 compatibility_flags = ["nodejs_compat"]
 
 
-[site]
-bucket = "./client/build"
+[[kv_namespaces]]
+binding = "__STATIC_CONTENT"
+id = "815e3a8fbed646eeaf9b5ce2013a6be6"
+preview_id = "815e3a8fbed646eeaf9b5ce2013a6be6"
 
 
 [[hyperdrive]]
@@ -19,6 +21,3 @@ JWT_SECRET = "a-default-secret-for-local-development"
 # wrangler.toml (wrangler v3.88.0^)
 [observability.logs]
 enabled = true
-
-
-
