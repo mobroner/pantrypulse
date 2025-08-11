@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [site]
 bucket = "./client/build"
-entry-point = "."
+main = "index.js"
 
 [[hyperdrive]]
 binding = "HYPERDRIVE"
