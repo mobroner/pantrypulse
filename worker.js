@@ -54,7 +54,7 @@ export default {
         },
         {
           ASSET_NAMESPACE: env.STATIC_CONTENT,
-          ASSET_MANIFEST: JSON.parse(await env.STATIC_CONTENT.get('manifest.json')),
+          ASSET_MANIFEST: JSON.parse(await env.STATIC_CONTENT.get('asset-manifest.json')),
           mapRequestToAsset: (req) => {
             const url = new URL(req.url);
             if (url.pathname.startsWith('/static/')) {
