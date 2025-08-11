@@ -9,7 +9,7 @@
     "prestart": "node populate-db.js"
   },
   "dependencies": {
-  "bcryptjs": "^2.4.3",
+  "bcrypt": "*",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
     "express": "^5.1.0",
