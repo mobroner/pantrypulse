@@ -3,12 +3,8 @@ main = "worker.js"
 compatibility_date = "2025-08-07"
 compatibility_flags = ["nodejs_compat"]
 
-
-[[kv_namespaces]]
-binding = "__STATIC_CONTENT"
-id = "815e3a8fbed646eeaf9b5ce2013a6be6"
-preview_id = "815e3a8fbed646eeaf9b5ce2013a6be6"
-
+[site]
+bucket = "./client/build"
 
 [[hyperdrive]]
 binding = "HYPERDRIVE"

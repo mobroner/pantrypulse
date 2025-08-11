@@ -1,4 +1,5 @@
 import { Router } from 'itty-router';
+import { getAssetFromKV, mapRequestToAsset } from '@cloudflare/kv-asset-handler';
 // import db from './server/db';
 import { workerAuth } from './server/middleware/auth';
 import { workerHandlers as authHandlers } from './server/routes/auth.worker.js';
@@ -33,18 +34,35 @@ router.delete('/api/storage/:id', workerAuth, (req, env, ctx) => storageHandlers
 router.post('/api/storage/:id/groups', workerAuth, (req, env, ctx) => storageHandlers.addGroup(req, env, ctx));
 router.delete('/api/storage/:id/groups/:group_id', workerAuth, (req, env, ctx) => storageHandlers.removeGroup(req, env, ctx));
 
-const indexHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"/><link rel="icon" href="/favicon.ico"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#000000"/><meta name="description" content="Web site created using create-react-app"/><link rel="apple-touch-icon" href="/logo192.png"/><link rel="manifest" href="/manifest.json"/><title>React App</title><script defer="defer" src="/static/js/main.js"></script><link href="/static/css/main.css" rel="stylesheet"></head><body><noscript>You need to enable JavaScript to run this app.</noscript><div id="root"></div></body></html>`;
-
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/api/')) {
       return router.handle(request, env, ctx);
     }
-    return new Response(indexHtml, {
-      headers: {
-        'content-type': 'text/html;charset=UTF-8',
-      },
-    });
+
+    try {
+      // Use kv-asset-handler to serve static assets
+      return await getAssetFromKV(
+        {
+          request,
+          waitUntil: ctx.waitUntil.bind(ctx),
+        },
+        {
+          ASSET_NAMESPACE: env.__STATIC_CONTENT,
+          ASSET_MANIFEST: JSON.parse(await env.__STATIC_CONTENT.get('manifest.json')),
+          mapRequestToAsset: (req) => {
+            const url = new URL(req.url);
+            if (url.pathname.startsWith('/static/')) {
+              return mapRequestToAsset(req);
+            }
+            return new Request(`${url.origin}/index.html`, req);
+          },
+        }
+      );
+    } catch (e) {
+      // If asset not found, fall back to the API router for 404s
+      return router.handle(request, env, ctx);
+    }
   },
 };
