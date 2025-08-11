@@ -50,7 +50,7 @@ export default {
         },
         {
           ASSET_NAMESPACE: env.__STATIC_CONTENT,
-          ASSET_MANIFEST: null, // We don't need a manifest with this setup
+          ASSET_MANIFEST: null,
         }
       );
     } catch (e) {
@@ -63,7 +63,7 @@ export default {
           },
           {
             ASSET_NAMESPACE: env.__STATIC_CONTENT,
-            ASSET_MANIFEST: null,
+          ASSET_MANIFEST: null, // We don't need a manifest with this setup
           }
         );
         return new Response(notFoundResponse.body, {
