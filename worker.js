@@ -33,31 +33,33 @@ router.delete('/api/storage/:id', workerAuth, (req, env, ctx) => storageHandlers
 router.post('/api/storage/:id/groups', workerAuth, (req, env, ctx) => storageHandlers.addGroup(req, env, ctx));
 router.delete('/api/storage/:id/groups/:group_id', workerAuth, (req, env, ctx) => storageHandlers.removeGroup(req, env, ctx));
 
-addEventListener('fetch', event => {
-  event.respondWith(handleEvent(event));
-});
-
-async function handleEvent(event) {
-  const url = new URL(event.request.url);
-  if (url.pathname.startsWith('/api/')) {
-    const apiResponse = await router.handle(event.request, event.env, event.ctx);
-    if (apiResponse instanceof Response) {
-      return apiResponse;
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    if (url.pathname.startsWith('/api/')) {
+      return router.handle(request, env, ctx);
     }
-    return new Response('Not found', { status: 404 });
-  }
 
-  try {
-    return await getAssetFromKV(event, {
-      mapRequestToAsset: (req) => {
-        const url = new URL(req.url);
-        if (url.pathname.startsWith('/static/')) {
-          return mapRequestToAsset(req);
+    try {
+      return await getAssetFromKV(
+        {
+          request,
+          waitUntil: ctx.waitUntil.bind(ctx),
+        },
+        {
+          ASSET_NAMESPACE: env.STATIC_CONTENT,
+          ASSET_MANIFEST: JSON.parse(await env.STATIC_CONTENT.get('asset-manifest.json')),
+          mapRequestToAsset: (req) => {
+            const url = new URL(req.url);
+            if (url.pathname.startsWith('/static/')) {
+              return mapRequestToAsset(req);
+            }
+            return new Request(`${url.origin}/index.html`, req);
+          },
         }
-        return new Request(`${url.origin}/index.html`, req);
-      },
-    });
-  } catch (e) {
-    return new Response('Not found', { status: 404 });
-  }
-}
+      );
+    } catch (e) {
+      return new Response('Not found', { status: 404 });
+    }
+  },
+};
