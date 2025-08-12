@@ -1,0 +1,12 @@
+{
+  "name": "@noble/hashes",
+  "version": "1.3.0",
+  "description": "Fast and tiny hashing libraries for JavaScript (PBKDF2, SHA, etc.)",
+  "main": "index.js",
+  "module": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "author": "Paul Miller (paulmillr.com)",
+  "license": "MIT"
+}
