@@ -3,9 +3,6 @@ main = "worker.js"
 compatibility_date = "2025-08-07"
 compatibility_flags = ["nodejs_compat"]
 
-[site]
-bucket = "./client/build"
-
 [[kv_namespaces]]
 binding = "STATIC_CONTENT"
 id = "815e3a8fbed646eeaf9b5ce2013a6be6"
